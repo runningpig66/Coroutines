@@ -58,6 +58,8 @@ class CallbackToSuspendActivity : ComponentActivity() {
         }
     }
 
+    /* suspendCoroutine 是最基础的回调转挂起工具，协程在此挂起后只能通过 resume 或 resumeWithException 唤醒，完全无视外部取消信号。
+       这意味着即使协程作用域被取消，它仍会死等回调结果，容易造成永久挂起和内存泄漏，仅适用于无需响应取消的极简场景。*/
     private suspend fun callbackToSuspend() = suspendCoroutine {
         gitHub.contributorsCall("square", "retrofit")
             .enqueue(object : Callback<List<Contributor>> {
@@ -73,6 +75,8 @@ class CallbackToSuspendActivity : ComponentActivity() {
             })
     }
 
+    /* suspendCancellableCoroutine 在 suspendCoroutine 的基础上加入了取消感知能力。一旦检测到协程被取消，它会自动抛出 CancellationException 来提前结束挂起，
+       并允许通过 invokeOnCancellation 注册清理逻辑。这是官方推荐的回调桥接方案，能确保异步任务与结构化并发的取消机制协同工作。*/
     private suspend fun callbackToCancellableSuspend() = suspendCancellableCoroutine {
         // 1. 抽离并保存真实的底层网络请求句柄（Call 对象）
         val call = gitHub.contributorsCall("square", "retrofit")
