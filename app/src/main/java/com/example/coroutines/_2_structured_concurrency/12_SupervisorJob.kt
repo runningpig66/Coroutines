@@ -35,6 +35,21 @@ import kotlinx.coroutines.runBlocking
  * SupervisorJob 被提取并指派为新协程的父节点（作为不干预异常的管理节点），而 handler 则被合并入新协程自身的上下文中（负责执行最终的异常拦截）。
  * 这种机制使得挂载在同一个 SupervisorJob 下的多个“兄弟协程”可以互不干扰地独立运行，并精确触发各自专属的异常处理器。
  * 官方提供的 supervisorScope 挂起函数正是基于这一底层机制封装的标准 API，它为实现局部异常隔离和复杂并发业务（如多模块独立加载）提供了可靠的架构支持。
+ *
+ * Ⅰ. 异常隔离的底层物理路由：在 JobSupport 的状态机中，子协程生命周期终结时会触发 finalizeFinishingState。
+ * 异常处理遵循短路或公式：handled = cancelParent(cause) || handleJobException(cause)
+ * SupervisorJob 的核心架构设计在于其重写了 childCancelled() 方法并强制返回 false。这意味着当子节点向上汇报异常时，
+ * 前置条件 cancelParent 必定失败，SupervisorJob 拒绝接管异常且自身状态保持 Active，从而在物理链路上彻底切断了异常向父级蔓延与向下级连坐的通道。
+ * Ⅱ. “有效根协程”的动态确立与 CEH 触发：基于上述短路逻辑，当父节点（SupervisorJob）拒绝处理异常时，执行流被迫流转至后半段 handleJobException()。
+ * 此时，该抛出异常的子协程在逻辑上被迫降级为“有效根协程”，它必须就地自行处理该异常。
+ * 只有在这种孤立状态下，该协程 Context 中携带的 CoroutineExceptionHandler (CEH) 才具备执行权限并被触发。
+ * Ⅲ. 构建器在异常兜底时的行为分歧：当协程被迫作为“有效根协程”自行处理异常时，不同的构建器在 handleJobException 的重写逻辑上存在根本差异：
+ * (A) Launch (StandaloneCoroutine)：重写了该方法。它会主动寻址并触发 CEH；若无 CEH，则交由线程的 UncaughtExceptionHandler 打印堆栈并返回 true，标志异常已处理。
+ * (B) Async (DeferredCoroutine)：未重写该方法，沿用 JobImpl 默认实现返回 false。异常未被外部拦截，
+ * 而是作为 CompletedExceptionally(cause) 被静默封存于底层的状态机 _state 中。程序不会崩溃，异常仅在后续显式调用 await() 时通过同步调用栈被重新抛出。
+ * Ⅳ. 异步传播与同步抛出的安全边界：SupervisorJob 及其衍生 API（如 supervisorScope）仅能隔离基于 Job 树状结构的“异步异常汇报”。
+ * 若开发者在 supervisorScope 的 Lambda 内部对异常完成的 Deferred 调用 await()，该异常将被转换为作用域内部的同步异常。
+ * 若未被 try-catch 捕获，将直接导致父作用域自身的代码块崩溃，进而触发标准的向下级联取消。
  */
 fun main() = runBlocking<Unit> {
     val scope = CoroutineScope(SupervisorJob())
