@@ -5,6 +5,7 @@ import retrofit2.adapter.rxjava3.RxJava3CallAdapterFactory
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.mock.MockRetrofit
 import retrofit2.mock.NetworkBehavior
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 /**
@@ -24,7 +25,10 @@ private val retrofit = Retrofit.Builder().baseUrl(GITHUB_API)
 
 // 实例化网络行为控制器 (NetworkBehavior)。
 // 默认配置下，它会模拟一个表现良好的网络连接（如：默认带来约 2000ms 的网络延迟，0% 的失败率，0% 的错误率）。
-private val behavior = NetworkBehavior.create()
+private val behavior = NetworkBehavior.create().apply {
+    setFailurePercent(0)
+    setDelay(1000L, TimeUnit.MILLISECONDS)
+}
 
 // 结合基础 Retrofit 引擎与网络行为控制器，构建 MockRetrofit 实例。
 private val mockRetrofit = MockRetrofit.Builder(retrofit)

@@ -63,9 +63,7 @@ class CallbackToSuspendActivity : ComponentActivity() {
     private suspend fun callbackToSuspend() = suspendCoroutine {
         gitHub.contributorsCall("square", "retrofit")
             .enqueue(object : Callback<List<Contributor>> {
-                override fun onResponse(
-                    call: Call<List<Contributor>>, response: Response<List<Contributor>>
-                ) {
+                override fun onResponse(call: Call<List<Contributor>>, response: Response<List<Contributor>>) {
                     it.resume(response.body()!!)
                 }
 
@@ -85,26 +83,21 @@ class CallbackToSuspendActivity : ComponentActivity() {
             call.cancel() // 显式触发底层的物理取消机制，强行释放 OkHttp 线程池中的该条 TCP 连接
         }
         // 3. 正常发起异步请求
-        gitHub.contributorsCall("square", "retrofit")
-            .enqueue(object : Callback<List<Contributor>> {
-                override fun onResponse(
-                    call: Call<List<Contributor>>, response: Response<List<Contributor>>
-                ) {
-                    it.resume(response.body()!!) // 恢复状态机，交回执行流
-                }
+        call.enqueue(object : Callback<List<Contributor>> {
+            override fun onResponse(call: Call<List<Contributor>>, response: Response<List<Contributor>>) {
+                it.resume(response.body()!!) // 恢复状态机，交回执行流
+            }
 
-                override fun onFailure(call: Call<List<Contributor>>, t: Throwable) {
-                    it.resumeWithException(t) // 恢复状态机并抛出异常
-                }
-            })
+            override fun onFailure(call: Call<List<Contributor>>, t: Throwable) {
+                it.resumeWithException(t) // 恢复状态机并抛出异常
+            }
+        })
     }
 
     private fun callbackStyle() {
         gitHub.contributorsCall("square", "retrofit")
             .enqueue(object : Callback<List<Contributor>> {
-                override fun onResponse(
-                    call: Call<List<Contributor>>, response: Response<List<Contributor>>
-                ) {
+                override fun onResponse(call: Call<List<Contributor>>, response: Response<List<Contributor>>) {
                     showContributors(response.body()!!)
                 }
 
