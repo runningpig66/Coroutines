@@ -1,5 +1,6 @@
 package com.example.coroutines._4_flow
 
+import com.example.coroutines.common.log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -45,8 +46,10 @@ fun main() = runBlocking<Unit> {
         flow.collect {
             println("flow: $it")
         }
-        flow.collectIndexed { index, value -> }
-        flow.collectLatest { }
+        flow.collectIndexed { index, value ->
+            log("1: $index - $value")
+        }
+        flow.collectLatest { } // TODO
     }
     delay(10000)
 }
